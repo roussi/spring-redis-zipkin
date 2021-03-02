@@ -1,0 +1,61 @@
+# Use root/example as user/password credentials
+version: '3.7'
+
+services:
+
+  elasticsearch:
+    image: elasticsearch:7.10.1
+    container_name: elasticsearch
+    restart: on-failure
+    ports:
+      - 9200:9200
+    environment:
+      #not recommended in production
+      - "ES_JAVA_OPTS=-Xms750m -Xmx750m"
+      - discovery.type=single-node
+
+  rabbitmq:
+    image: rabbitmq:3.8-management-alpine
+    container_name: rabbitmq
+    restart: on-failure
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      RABBITMQ_DEFAULT_VHOST: ${rabbitmq_vhost}
+      RABBITMQ_DEFAULT_USER: ${rabbitmq_user}
+      RABBITMQ_DEFAULT_PASS: ${rabbitmq_pass}
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: 1024MiB
+
+  zipkin-server:
+    image: openzipkin/zipkin:2
+    container_name: zipkin-server
+    depends_on:
+      - rabbitmq
+      - elasticsearch
+    restart: on-failure
+    ports:
+      - 9411:9411
+    environment:
+      RABBIT_CONCURRENCY: 1
+      RABBIT_CONNECTION_TIMEOUT: 60000
+      RABBIT_URI: amqp://aroussi:aroussi123@rabbitmq:5672/rabbitmq_vhost
+      RABBIT_QUEUE: zipkin_queue
+      #RABBIT_ADDRESSES: ${rabbitmq_host}
+      #RABBIT_VIRTUAL_HOST: ${rabbitmq_vhost}
+      #RABBIT_USER: ${rabbitmq_user}
+      #RABBIT_PASSWORD: ${rabbitmq_pass}
+      RABBIT_USE_SSL: "false"
+      STORAGE_TYPE: elasticsearch
+      ES_HOSTS: ${elasticsearch_host}
+
+
+volumes:
+  default:
+    external:
+      name: zipkin-monitoring
+
+networks:
+  default:
+    external:
+      name: monitoring
